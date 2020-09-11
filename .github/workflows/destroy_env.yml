@@ -1,0 +1,36 @@
+on:
+  pull_request:
+    types: [closed]
+
+name: Destroy PR Environment
+jobs:
+  destroy_env:
+    runs-on: ubuntu-latest
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      BRANCH_NAME: ${{ github.head_ref }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: 'Terraform Setup'
+        uses: hashicorp/setup-terraform@v1
+        with:
+          aws_access_key: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: 'Terraform Init'
+        id: init
+        working-directory: "infra"
+        run: terraform init -backend-config="key=${{ env.BRANCH_NAME }}.xts.tfstate"
+
+      - name: Terraform destroy
+        working-directory: "infra"
+        run: terraform destroy -auto-approve
+
+      - name: Notify environment destruction
+        uses: thollander/actions-comment-pull-request@master
+        with:
+          message: 'Temporary environment now destroyed'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
